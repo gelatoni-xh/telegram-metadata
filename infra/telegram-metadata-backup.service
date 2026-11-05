@@ -1,0 +1,10 @@
+[Unit]
+Description=Telegram Metadata isolated database backup
+After=docker.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/apps/telegram-metadata
+ExecStart=/opt/apps/telegram-metadata/scripts/backup.sh
+UMask=0077

@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id              String         @id @default(cuid())
+  telegramUserId  BigInt         @unique
+  chatId          BigInt         @unique
+  language        String         @default("zh")
+  ageConfirmedAt  DateTime?
+  activeSessionId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  lastSeenAt      DateTime       @default(now())
+  sessions        QuerySession[]
+}
+
+model QuerySession {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stateVersion Int     @default(1)
+  queryText   String   @db.VarChar(200)
+  queryKind   String
+  filtersJson Json     @default("{}")
+  pageToken   String?
+  previousPageToken String?
+  pageNumber  Int      @default(0)
+  totalCount  Int?
+  itemsJson   Json     @default("[]")
+  view        String   @default("results")
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([expiresAt])
+  @@index([userId, expiresAt])
+}
+
+model ProviderCall {
+  id              String   @id @default(cuid())
+  provider        String
+  operation       String
+  statusCategory  String
+  durationMs      Int
+  errorType       String?
+  requestId       String
+  createdAt       DateTime @default(now())
+  @@index([createdAt])
+}
+
+model TelegramUpdate {
+  updateId Int      @id
+  payload  Json?
+  state    String   @default("queued")
+  createdAt DateTime @default(now())
+  @@index([state, updateId])
+  @@index([createdAt])
+}

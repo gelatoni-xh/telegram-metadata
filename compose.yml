@@ -1,0 +1,33 @@
+name: telegram-metadata
+services:
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE required}
+    env_file: .env.production
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 45s
+    ports: ["127.0.0.1:3051:3000"]
+    mem_limit: 192m
+    cpus: 0.5
+    pids_limit: 80
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [database]
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
+  migrate:
+    image: ${APP_IMAGE:?APP_IMAGE required}
+    env_file: .env.migration
+    command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
+    mem_limit: 192m
+    cpus: 0.5
+    networks: [database]
+    profiles: [tools]
+    security_opt: ["no-new-privileges:true"]
+networks:
+  database:
+    external: true
+    name: tasuki-keifu_default

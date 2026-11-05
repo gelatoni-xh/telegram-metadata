@@ -1,0 +1,101 @@
+name: Check and deploy
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: metadata-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: telegram_metadata_test
+          POSTGRES_PASSWORD: local-development-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d telegram_metadata_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:local-development-only@127.0.0.1:5432/telegram_metadata_test
+      EXPECTED_DATABASE: telegram_metadata_test
+      BOT_TOKEN: ""
+      WEBHOOK_URL: https://example.invalid/webhook
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm exec prisma migrate deploy
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm test:integration
+      - run: docker build -t telegram-metadata:${{ github.sha }} .
+      - if: github.event_name != 'pull_request'
+        run: |
+          docker save telegram-metadata:${{ github.sha }} | gzip > image.tar.gz
+          sha256sum image.tar.gz > image.tar.gz.sha256
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment
+          path: |
+            image.tar.gz
+            image.tar.gz.sha256
+          retention-days: 3
+  deploy:
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: deployment
+      - name: Render protected environment
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          JAVINFO_API_KEY: ${{ secrets.JAVINFO_API_KEY }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+          ADMIN_TELEGRAM_ID: ${{ secrets.ADMIN_TELEGRAM_ID }}
+        run: python3 scripts/render-env.py
+      - name: Deploy verified image
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          target="$SERVER_USER@$SERVER_HOST"
+          destination="/opt/apps/telegram-metadata/releases/$RELEASE_SHA"
+          ssh "$target" "mkdir -p '$destination' /opt/apps/telegram-metadata/scripts"
+          scp image.tar.gz image.tar.gz.sha256 .env.production .env.migration "$target:$destination/"
+          scp compose.yml "$target:/opt/apps/telegram-metadata/compose.yml"
+          scp scripts/deploy.sh scripts/backup.sh "$target:/opt/apps/telegram-metadata/scripts/"
+          ssh "$target" "chmod 700 /opt/apps/telegram-metadata/scripts/*.sh && /opt/apps/telegram-metadata/scripts/deploy.sh '$RELEASE_SHA'"
+      - if: always()
+        run: rm -f .env.production .env.migration ~/.ssh/id_ed25519

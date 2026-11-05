@@ -1,0 +1,33 @@
+{
+  "name": "telegram-metadata",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24 <25" },
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env.local --env-file=.env src/main.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "test:integration": "tsx --test tests/integration/*.test.ts",
+    "start": "node dist/src/main.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.8.0",
+    "@prisma/client": "7.8.0",
+    "fastify": "^5.12.8",
+    "grammy": "^1.46.0",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7",
+    "prisma": "7.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
