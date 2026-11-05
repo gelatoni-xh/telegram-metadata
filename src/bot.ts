@@ -8,6 +8,7 @@ import { JavInfoApiError, ProviderNotVerifiedError, type MetadataProvider, type 
 import { ageView, detailView, filterInputView, filterView, homeView, languageView, queryView, resultsView, simpleView } from './ui.js';
 import { allowMetadata } from './content-policy.js';
 import type { MetadataSummary } from './provider.js';
+import { configureAdministratorCommands } from './commands.js';
 
 type Profile = Awaited<ReturnType<Db['user']['upsert']>>;
 
@@ -198,6 +199,7 @@ export function createBot(db: Db, config: Config, provider: MetadataProvider, bo
   bot.command('start', async (ctx) => {
     let user = await profile(ctx);
     if (!user) return;
+    if (String(user.telegramUserId) === config.ADMIN_TELEGRAM_ID) await configureAdministratorCommands(bot, config);
     await db.querySession.deleteMany({ where: { userId: user.id } });
     user = await db.user.update({ where: { id: user.id }, data: { activeSessionId: null } });
     if (!user.ageConfirmedAt) {
