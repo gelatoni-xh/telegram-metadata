@@ -9,11 +9,25 @@ import { ageView, detailView, filterInputView, filterView, homeView, languageVie
 import { allowMetadata } from './content-policy.js';
 import type { MetadataSummary } from './provider.js';
 import { configureAdministratorCommands } from './commands.js';
+import { collectStats, recordUsage, markSearch } from './stats.js';
 
 type Profile = Awaited<ReturnType<Db['user']['upsert']>>;
 
 export function createBot(db: Db, config: Config, provider: MetadataProvider, botInfo?: ConstructorParameters<typeof Bot>[1]) {
   const bot = new Bot(config.BOT_TOKEN, botInfo);
+  bot.use(async (ctx, next) => {
+    await next();
+    if (ctx.chat?.type === 'private' && ctx.from && !ctx.from.is_bot &&
+        String(ctx.from.id) !== config.ADMIN_TELEGRAM_ID &&
+        (ctx.message?.text || ctx.callbackQuery?.data)) {
+      await recordUsage(db, ctx);
+    }
+  });
+  bot.command('stats', async (ctx) => {
+    if (!config.ADMIN_TELEGRAM_ID || String(ctx.from?.id) !== config.ADMIN_TELEGRAM_ID) return;
+    const report = await collectStats(db, config.ADMIN_TELEGRAM_ID);
+    await ctx.reply('JAVIndexBot · 使用统计\n' + JSON.stringify(report, null, 2));
+  });
 
   async function profile(ctx: Context): Promise<Profile | null> {
     if (!ctx.from || !ctx.chat || ctx.chat.type !== 'private' || ctx.from.is_bot) return null;
@@ -129,6 +143,7 @@ export function createBot(db: Db, config: Config, provider: MetadataProvider, bo
     });
 
     try {
+      markSearch(ctx);
       const page = await provider.search({ text: normalized.text, kind: normalized.kind, pageSize: 5, filters: {} });
       const items = page.items.map(item => ({
         ...allowMetadata(item as unknown as Record<string, unknown>),
@@ -430,7 +445,8 @@ export function createBot(db: Db, config: Config, provider: MetadataProvider, bo
         const loading = queryView(language, t(language).queryLoading, true);
         await screen(ctx, loading.text, loading.keyboard);
         try {
-          const page = await provider.search({
+          markSearch(ctx);
+      const page = await provider.search({
             text: session.queryText,
             kind: session.queryKind as 'code' | 'keyword',
             pageSize: 5,
@@ -515,7 +531,8 @@ export function createBot(db: Db, config: Config, provider: MetadataProvider, bo
       await screen(ctx, loading.text, loading.keyboard);
       try {
         const filters = filterStateFromJson(session.filtersJson).applied;
-        const page = await provider.search({ text: session.queryText, kind: session.queryKind as 'code' | 'keyword', pageToken: token, pageSize: 5, filters });
+        markSearch(ctx);
+      const page = await provider.search({ text: session.queryText, kind: session.queryKind as 'code' | 'keyword', pageToken: token, pageSize: 5, filters });
         if (!page.items.length) {
           const finished = await db.querySession.updateMany({
             where: { id, stateVersion: nextVersion },

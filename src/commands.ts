@@ -20,8 +20,8 @@ export async function configureAdministratorCommands(bot: Bot, config: Pick<Conf
   if (!config.ADMIN_TELEGRAM_ID) return;
   try {
     const scope = { type: 'chat' as const, chat_id: Number(config.ADMIN_TELEGRAM_ID) };
-    await bot.api.setMyCommands([...commands, { command: 'status', description: '查询上游账户状态' }], { scope });
-    await bot.api.setMyCommands([...japaneseCommands, { command: 'status', description: '検索元アカウント状態' }], { scope, language_code: 'ja' });
+    await bot.api.setMyCommands([...commands, { command: 'status', description: '查询上游账户状态' }, { command: 'stats', description: '查看使用统计' }], { scope });
+    await bot.api.setMyCommands([...japaneseCommands, { command: 'status', description: '検索元アカウント状態' }, { command: 'stats', description: '利用統計' }], { scope, language_code: 'ja' });
   } catch {
     // Telegram cannot assign a per-chat menu until the user opens this new bot.
     // /status authorization is independent of menu registration.

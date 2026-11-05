@@ -19,7 +19,7 @@ printf 'APP_IMAGE=telegram-metadata:%s\n' "$release_sha" > next-release.env
 docker compose --env-file next-release.env run --rm --no-deps migrate
 docker exec -i tasuki-keifu-postgres psql -U tasuki_keifu_user -d telegram_metadata -v ON_ERROR_STOP=1 <<'SQL'
 GRANT USAGE ON SCHEMA public TO telegram_metadata_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "User", "QuerySession", "ProviderCall", "TelegramUpdate" TO telegram_metadata_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "User", "QuerySession", "ProviderCall", "TelegramUpdate", "UsageEvent", "StatsState" TO telegram_metadata_app;
 REVOKE ALL ON TABLE "_prisma_migrations" FROM telegram_metadata_app;
 SQL
 mv next-release.env release.env

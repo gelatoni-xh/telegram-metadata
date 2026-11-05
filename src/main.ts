@@ -5,6 +5,7 @@ import { createHttp } from './http.js';
 import { JavInfoProvider } from './provider.js';
 import { startInbox } from './inbox.js';
 import { configureCommands } from './commands.js';
+import { startStatsExport } from './stats.js';
 
 async function main() {
 const config = readConfig();
@@ -21,6 +22,7 @@ await bot.init();
 await configureCommands(bot, config);
 const app = createHttp(db, bot, config);
 await app.listen({ host: '0.0.0.0', port: config.PORT });
+const stopStats = startStatsExport(db, bot.api, config.ADMIN_TELEGRAM_ID);
 const stopInbox = config.BOT_MODE === 'webhook' ? await startInbox(db, bot) : async () => {};
 const cleanupTimer = setInterval(() => {
   void db.querySession.deleteMany({ where: { expiresAt: { lt: new Date() } } }).catch(() => {
@@ -38,6 +40,7 @@ console.log(JSON.stringify({ event: 'started', port: config.PORT }));
 
 async function shutdown() {
   clearInterval(cleanupTimer);
+  await stopStats();
   await app.close();
   await stopInbox();
   if (bot.isRunning()) await bot.stop();

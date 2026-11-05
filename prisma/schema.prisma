@@ -60,3 +60,18 @@ model TelegramUpdate {
   @@index([state, updateId])
   @@index([createdAt])
 }
+
+// No message bodies, query terms, or provider results are stored for analytics.
+model UsageEvent {
+  updateId Int @id
+  telegramUserId BigInt
+  searches Int @default(0)
+  createdAt DateTime @default(now())
+  @@index([createdAt, telegramUserId])
+}
+
+model StatsState {
+  id String @id
+  messageId Int?
+  createdAt DateTime @default(now())
+}

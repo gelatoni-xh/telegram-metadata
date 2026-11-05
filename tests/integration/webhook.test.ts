@@ -5,6 +5,7 @@ import { readConfig } from '../../src/config.js';
 import { createHttp } from '../../src/http.js';
 import { createBot } from '../../src/bot.js';
 import { processNextUpdate } from '../../src/inbox.js';
+import { collectStats, exportStats } from '../../src/stats.js';
 import type { MetadataProvider } from '../../src/provider.js';
 
 test('durable webhook and bilingual bot flow against migrated PostgreSQL', async () => {
@@ -17,7 +18,7 @@ test('durable webhook and bilingual bot flow against migrated PostgreSQL', async
   const db = createDb(config);
   await verifyDatabase(db, 'telegram_metadata_test');
   // This suite is permitted to reset only its explicitly named test database.
-  await db.$executeRawUnsafe('TRUNCATE "TelegramUpdate", "QuerySession", "User", "ProviderCall" CASCADE');
+  await db.$executeRawUnsafe('TRUNCATE "UsageEvent", "TelegramUpdate", "QuerySession", "User", "ProviderCall" CASCADE');
   const searches: Parameters<MetadataProvider['search']>[0][] = [];
   const provider: MetadataProvider = {
     search: async input => {
@@ -99,6 +100,21 @@ test('durable webhook and bilingual bot flow against migrated PostgreSQL', async
     assert.equal(await db.querySession.count(), 0);
     await deliver({ message: message('ABC-123') });
     assert.match(String(last.text), /18/);
+    const events = await db.usageEvent.count();
+    assert.equal(events, updateId); // A duplicate webhook does not add an interaction.
+    assert.equal(await db.usageEvent.aggregate({ _sum: { searches: true } }).then(r => r._sum.searches), 4);
+    const administrator = await collectStats(db, '100');
+    assert.equal(administrator.totals.registeredUsers, 0);
+    assert.equal(administrator.daily.at(-2)!.active, null); // Before installation is unknown.
+    await db.statsState.update({ where: { id: 'usage' }, data: { createdAt: new Date(Date.now() - 15 * 86400_000) } });
+    const known = await collectStats(db, '999');
+    assert.equal(known.totals.registeredUsers, 1);
+    assert.equal(known.daily.at(-1)!.interactions, events);
+    assert.equal(known.daily.at(-1)!.active, 1);
+    assert.equal(known.daily.at(-1)!.searches, 4);
+    assert.equal(known.weeklyActive, 0); // Today is excluded from the completed week.
+    await exportStats(db, bot.api, '999');
+    assert.ok((await db.statsState.findUniqueOrThrow({ where: { id: 'usage' } })).messageId);
   } finally {
     await app.close();
     await db.$disconnect();
