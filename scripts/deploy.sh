@@ -2,6 +2,7 @@
 set -euo pipefail
 umask 077
 cd /opt/apps/telegram-metadata
+source .ops.conf
 exec 9>.deploy.lock
 flock -n 9 || { echo 'Another deployment is active'; exit 1; }
 release_sha=${1:?Provide full SHA}
@@ -17,7 +18,7 @@ install -m 600 "$candidate/.env.production" .env.production
 install -m 600 "$candidate/.env.migration" .env.migration
 printf 'APP_IMAGE=telegram-metadata:%s\n' "$release_sha" > next-release.env
 docker compose --env-file next-release.env run --rm --no-deps migrate
-docker exec -i tasuki-keifu-postgres psql -U tasuki_keifu_user -d telegram_metadata -v ON_ERROR_STOP=1 <<'SQL'
+docker exec -i "$DB_CONTAINER" psql -U "$DB_ADMIN_USER" -d telegram_metadata -v ON_ERROR_STOP=1 <<'SQL'
 GRANT USAGE ON SCHEMA public TO telegram_metadata_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "User", "QuerySession", "ProviderCall", "TelegramUpdate", "UsageEvent", "StatsState" TO telegram_metadata_app;
 REVOKE ALL ON TABLE "_prisma_migrations" FROM telegram_metadata_app;

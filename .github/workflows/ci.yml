@@ -76,6 +76,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
           ADMIN_TELEGRAM_ID: ${{ secrets.ADMIN_TELEGRAM_ID }}
+          WEBHOOK_URL: ${{ vars.WEBHOOK_URL }}
         run: python3 scripts/render-env.py
       - name: Deploy verified image
         env:
