@@ -12,10 +12,13 @@ def write(name, entries):
     path.write_text('\n'.join(lines) + '\n')
     path.chmod(0o600)
 
+if not os.environ.get('WEBHOOK_URL', '').startswith('https://'):
+    raise SystemExit('WEBHOOK_URL must be an HTTPS URL')
+
 write('.env.production', {
     'NODE_ENV': 'production', 'BOT_MODE': 'webhook', 'PORT': '3000',
     'EXPECTED_DATABASE': 'telegram_metadata', 'DATABASE_POOL_MAX': '3',
-    'WEBHOOK_URL': 'https://gelatoni.uk/bots/telegram-metadata/webhook',
+    'WEBHOOK_URL': os.environ['WEBHOOK_URL'],
     'JAVINFO_BASE_URL': 'https://api.javinfo.dev',
     **{key: os.environ[key] for key in ['DATABASE_URL', 'BOT_TOKEN', 'JAVINFO_API_KEY', 'WEBHOOK_SECRET', 'ADMIN_TELEGRAM_ID']},
 })

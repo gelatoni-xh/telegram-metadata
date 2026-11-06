@@ -30,4 +30,4 @@ services:
 networks:
   database:
     external: true
-    name: tasuki-keifu_default
+    name: ${DATABASE_NETWORK:-tasuki-keifu_default}
