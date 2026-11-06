@@ -1,8 +1,10 @@
 # Telegram Metadata Bot
 
-Telegram private chat bot for bilingual text metadata search. The initial implementation includes age confirmation, Chinese/Japanese UI, privacy controls, query sessions, result pages, detail pages, and session ownership/version checks.
+**My personal Telegram bot for Chinese/Japanese text-metadata searches.** Look up a catalog number or keyword, filter and browse results, and open concise details in a private chat.
 
-The JavInfo adapter uses the documented `/query`, `/movie`, and `/profile` endpoints with runtime response validation. Its search, detail, authentication, and account response shapes have been checked with controlled live calls. See `docs/source.md` for the verified contract and remaining source-link terms review.
+This repository contains the implementation and deployment notes for my personal-use bot. It is designed for adults, requires age confirmation before the first search, and returns text metadata only; it does not provide videos, previews, downloads, or media links.
+
+The JavInfo adapter validates responses from the documented `/query`, `/movie`, and `/profile` endpoints. See [`docs/source.md`](docs/source.md) for the verified API contract and remaining source-link terms review.
 
 ## Local development
 
